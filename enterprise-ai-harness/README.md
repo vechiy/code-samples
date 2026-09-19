@@ -35,6 +35,8 @@ stderr; the model gets neutral text with no table or column names in it.
 **Start with `llm_excerpt.py`**: that is the harness itself. Then `db_excerpt.py`
 (the double permission gate and the dispatcher), then `crypto.py` (the contract with
 the masking gateway). The tests in `tests/` are hermetic: no network, no database.
+`test_chat_fail_closed.py` breaks the masking service on purpose and asserts that
+the provider is never called and that nothing is streamed to the user.
 
 Comments and docstrings were translated to English for review; the logic is
 unchanged. Strings that production sends to the model or shows to the user are
