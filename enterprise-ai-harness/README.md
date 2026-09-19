@@ -5,8 +5,12 @@ documents, web search, reading attachments, image generation. Around 210 users a
 a set of 19 boolean permissions instead of roles. What is shown here is **one path
 of one request**, from the permission check to the answer, not the whole system.
 
-Two satellite services (a formulation assistant and a contract-analysis RAG) run on
-local LLMs behind the same SSO; they are not part of this excerpt.
+Two satellite services share this assistant's SSO and sit behind the same
+permission flags: a cosmetics formulation assistant and a legal contract-analysis
+RAG (about 5,000 active contracts, structured term extraction, cross-document
+comparison). Both run entirely on a local GPU host (Ollama, qwen-family models),
+so no masking gateway is involved: the data never leaves the network. They are
+separate codebases and are not part of this excerpt.
 
 Every request to a cloud LLM goes through an external masking service: it replaces
 names, counterparties and other identifiers with tokens of the form
@@ -32,9 +36,24 @@ to the human and, if it makes sense, try a different way. A failing tool that to
 down the SSE stream would cut off the whole answer. The technical cause goes to
 stderr; the model gets neutral text with no table or column names in it.
 
+`rag_excerpt.py` is the document access control of the RAG path. The rag_read
+permission is checked at the tool entry, rag_write and admin at the HTTP layer, and
+the set of collections a user can read (public plus per-user grants) is resolved in
+two places: in `rag_collections` for the upload target, and as a separate SQL
+statement inside `rag_search` for the retrieval filter. The remaining RAG routes,
+the collection CRUD and the grant management are not shown.
+
+`usage_costs.py` is the cost formula, included whole. A stored `cost_rub`, in the
+`llm_usage` row or in the JSON result of a tool, is returned as is; computation
+happens only where no stored value exists: tokens times an editable price list for
+LLM calls, a static per-image price plus a per-reference surcharge for images, and
+no value for video. The price list contents and the code that loads them are not
+shown.
+
 **Start with `llm_excerpt.py`**: that is the harness itself. Then `db_excerpt.py`
 (the double permission gate and the dispatcher), then `crypto.py` (the contract with
-the masking gateway). The tests in `tests/` are hermetic: no network, no database.
+the masking gateway), then `rag_excerpt.py` and `usage_costs.py`. The tests in
+`tests/` are hermetic: no network, no database.
 `test_chat_fail_closed.py` breaks the masking service on purpose and asserts that
 the provider is never called and that nothing is streamed to the user.
 
