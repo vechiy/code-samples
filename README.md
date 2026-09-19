@@ -1,9 +1,7 @@
 # Code samples
 
-Two excerpts from prod systems built for a mid-size company, prepared for
-an external technical review. Both were designed, specified and verified by me; the implementation was done through claude under my direction. Comments and docstrings are translated to english for review;
-logic is unchanged and strings that production sends to the model or shows to
-the user stay in russian with an adjacent gloss.
+Two excerpts from production systems at a mid-size company, prepared for an external technical review. Architecture, task decomposition, test design and acceptance are mine; the code was written by claude working from my specifications. Comments and docstrings are translated to english for review.
+Logic is unchanged, and strings that production sends to the model or shows to the user stay in russian with an adjacent gloss.
 
 ## What is here
 
