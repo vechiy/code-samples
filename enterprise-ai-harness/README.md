@@ -3,21 +3,24 @@
 A corporate chat assistant with tools: sales-cube analytics, search over internal
 documents, web search, reading attachments, image generation. Around 210 users and
 a set of 19 boolean permissions instead of roles. What is shown here is **one path
-of one request** — from the permission check to the answer — not the whole system.
+of one request**, from the permission check to the answer, not the whole system.
+
+Two satellite services (a formulation assistant and a contract-analysis RAG) run on
+local LLMs behind the same SSO; they are not part of this excerpt.
 
 Every request to a cloud LLM goes through an external masking service: it replaces
 names, counterparties and other identifiers with tokens of the form
 `[[CUSTOMER_4B319A8C1CF7]]`. The service is external because the substitution
 dictionary must not live inside an application that talks to the internet.
 **Fail-closed here is meant literally:** if the service is unavailable or returns
-`blocked`, an exception is raised before the tool-calling loop is entered — that is,
+`blocked`, an exception is raised before the tool-calling loop is entered, that is,
 before the single place where an HTTP request to the provider is made. A masking
 failure means the request fails, not that raw text is sent.
 
 The `sessionId` is issued by the masking service on every `tokenize` call. A single
 answer spans several such sessions: one for the user message and one more for each
 tool result. A token restored through a **foreign** session comes back not as the
-original substring but as the canonical directory entry — that is, as a different
+original substring but as the canonical directory entry: that is, as a different
 legal entity. This is why `SessionTokenMap` remembers which session each token was
 born in and restores each one through that session; a token with no session of its
 own is left in the text as is. A silent substitution in analytics is worse than a
@@ -29,14 +32,16 @@ to the human and, if it makes sense, try a different way. A failing tool that to
 down the SSE stream would cut off the whole answer. The technical cause goes to
 stderr; the model gets neutral text with no table or column names in it.
 
-**Start with `llm_excerpt.py`** — that is the harness itself. Then `db_excerpt.py`
+**Start with `llm_excerpt.py`**: that is the harness itself. Then `db_excerpt.py`
 (the double permission gate and the dispatcher), then `crypto.py` (the contract with
 the masking gateway). The tests in `tests/` are hermetic: no network, no database.
 
 Comments and docstrings were translated to English for review; the logic is
 unchanged. Strings that production sends to the model or shows to the user are
-still in Russian — the tests assert on some of them — and each one carries its
+still in Russian. The tests assert on some of them, and each one carries its
 English meaning in an adjacent comment.
+
+Known gaps of this path are discussed in the application text, not here.
 
 ```
 User        -> FastAPI    : POST /chats/{id}/messages (JWT)
