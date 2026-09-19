@@ -31,8 +31,9 @@ compares a transcript with a finished extraction, with a control that injects
 synthetic corruption. A blind A/B of GigaAM-v2 against faster-whisper
 large-v3, including the residual leak that could not be hidden: whisper stayed in
 production, because GigaAM returns no word level timestamps and speaker attribution is
-built on them, although it ran about nine times faster on the same CPU. And the metrics these are read with: WER with an
-anonymisation wildcard, time-weighted speaker attribution, turn structure.
+built on them, although it ran about nine times faster on the same CPU. And the metrics
+these are read with: WER with an anonymisation wildcard, time-weighted speaker
+attribution, turn structure.
 
 Honest limits. One call is labelled as a golden reference, so this is a pilot of the
 method rather than a measured corpus. The judge has never been checked against human
