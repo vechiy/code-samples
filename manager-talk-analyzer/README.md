@@ -4,6 +4,18 @@ MTA analyses sales phone calls: ASR, diarization, and an LLM step that extracts 
 JSON document from the transcript. The manager's score is not the model's: the model
 fills in criteria, and code sums them by a fixed formula.
 
+What is being evaluated. One LLM call turns a transcript into a JSON document that
+has to match `schemas/sales.json`: participants, the client request, each objection and
+whether it was handled, agreements, the next step, products, amounts, competitors,
+sentiment, confidence, a closed list of missing fields, and five scoring criteria. The
+prompt that asks for all of it is `prompts_excerpt.py`, verbatim and untranslated,
+because it is what production sends and what the injection cases were aimed at. The
+model fills the criteria and never the number: `scoring_excerpt.py` is the code that
+sums them, overwrites the service fields in the model's own answer, and decides when
+the honest result is no score at all. That split is what makes this step measurable,
+because everything the model contributes is a field and every field has a name in the
+schema.
+
 What is shown here is the evaluation side. A golden reference where every label
 carries its provenance, a changelog of corrections and one turn marked unresolvable
 with the measurement behind it. A contradiction judge: a separate model call that
@@ -31,5 +43,6 @@ stitching rules rather than as a suite to execute. The experiment material in
 `mats-test/cases/` and `mats-test/bases/` stays in Russian on purpose: its sha256 is
 recorded in `mats-test/cases/FROZEN.md` and translating it would break that chain.
 
-Reading order: `tests/golden/golden_call-01.json`, then `scripts/january_selfcheck.py`,
-then `build_blind` in `scripts/asr_ab_excerpt.py`, then `mats-test/RESULTS.md`.
+Reading order: this file, then `schemas/sales.json`, then `prompts_excerpt.py`, then
+`scoring_excerpt.py`, then `tests/golden/golden_call-01.json`, then
+`scripts/january_selfcheck.py`, then `mats-test/EXPERIMENT.md`.

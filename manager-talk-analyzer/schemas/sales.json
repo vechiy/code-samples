@@ -1,0 +1,246 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SalesContactAnalysis",
+  "description": "Единая структура результата анализа контакта менеджера с клиентом (звонок или переписка).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "source_kind",
+    "employee_id",
+    "identity",
+    "source_ref",
+    "contact_type",
+    "participants",
+    "summary",
+    "client_request",
+    "objections",
+    "agreements",
+    "next_step",
+    "products_mentioned",
+    "amounts_mentioned",
+    "competitors_mentioned",
+    "score",
+    "score_breakdown",
+    "sentiment",
+    "confidence",
+    "missing_fields"
+  ],
+  "properties": {
+    "source_kind": {
+      "type": "string",
+      "enum": ["audio", "mail"],
+      "description": "Тип источника: audio — запись звонка, mail — выгрузка переписки."
+    },
+    "employee_id": {
+      "type": "string",
+      "description": "Идентификатор сотрудника: результат идентификации, либо 'unknown'."
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["employee", "method", "similarity"],
+      "description": "Как определён сотрудник. Заполняется кодом, а не моделью.",
+      "properties": {
+        "employee": {
+          "type": "string",
+          "description": "Фамилия сотрудника или 'unknown'."
+        },
+        "method": {
+          "type": "string",
+          "enum": ["voice", "filename", "folder", "email", "none"],
+          "description": "Способ идентификации: голос, внутренний номер из имени файла, подпапка, email или не определён."
+        },
+        "similarity": {
+          "type": ["number", "null"],
+          "description": "Косинусная близость голоса к эталону; null для остальных способов."
+        }
+      }
+    },
+    "source_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "timecodes"],
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "Имя исходного файла."
+        },
+        "timecodes": {
+          "type": "boolean",
+          "description": "Есть ли в источнике таймкоды (true для аудио с диаризацией)."
+        }
+      }
+    },
+    "contact_type": {
+      "type": "string",
+      "enum": [
+        "входящий звонок",
+        "исходящий звонок",
+        "внутренний разговор",
+        "переписка email",
+        "звонок"
+      ],
+      "description": "Тип контакта. Заполняется кодом по фактам (номера в имени файла телефонии, тип источника), а не моделью по содержанию. 'звонок' — запись звонка, фактов о направлении нет."
+    },
+    "participants": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manager", "client", "client_company"],
+      "properties": {
+        "manager": {
+          "type": ["string", "null"],
+          "description": "Имя менеджера, если названо в источнике."
+        },
+        "client": {
+          "type": ["string", "null"],
+          "description": "Имя клиента, если названо в источнике."
+        },
+        "client_company": {
+          "type": ["string", "null"],
+          "description": "Компания клиента, если названа в источнике."
+        }
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "Краткое содержание контакта, 3-5 предложений."
+    },
+    "client_request": {
+      "type": ["string", "null"],
+      "description": "Запрос/потребность клиента своими словами. null, если запроса в источнике нет (тогда имя поля идёт в missing_fields)."
+    },
+    "objections": {
+      "type": "array",
+      "description": "Возражения клиента и их отработка.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["objection", "handled", "how"],
+        "properties": {
+          "objection": {
+            "type": "string",
+            "description": "Суть возражения."
+          },
+          "handled": {
+            "type": "boolean",
+            "description": "Отработано ли возражение менеджером."
+          },
+          "how": {
+            "type": ["string", "null"],
+            "description": "Как именно отработано; null, если не отработано."
+          }
+        }
+      }
+    },
+    "agreements": {
+      "type": "array",
+      "description": "Достигнутые договорённости.",
+      "items": { "type": "string" }
+    },
+    "next_step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["action", "deadline"],
+      "properties": {
+        "action": {
+          "type": ["string", "null"],
+          "description": "Следующий шаг по сделке."
+        },
+        "deadline": {
+          "type": ["string", "null"],
+          "description": "Срок следующего шага в том виде, в каком он назван в источнике."
+        }
+      }
+    },
+    "products_mentioned": {
+      "type": "array",
+      "description": "Упомянутые товары/услуги.",
+      "items": { "type": "string" }
+    },
+    "amounts_mentioned": {
+      "type": "array",
+      "description": "Упомянутые суммы.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["value", "currency", "context"],
+        "properties": {
+          "value": {
+            "type": "number",
+            "description": "Числовое значение суммы."
+          },
+          "currency": {
+            "type": "string",
+            "description": "Валюта, например RUB."
+          },
+          "context": {
+            "type": "string",
+            "description": "К чему относится сумма."
+          }
+        }
+      }
+    },
+    "competitors_mentioned": {
+      "type": "array",
+      "description": "Названия конкурентов, если прозвучали. Пустой массив, если нет.",
+      "items": { "type": "string" }
+    },
+    "score": {
+      "type": ["integer", "null"],
+      "minimum": 1,
+      "maximum": 10,
+      "description": "Оценка работы менеджера 1-10. Считается кодом из score_breakdown (2 базовых + 2 за каждый true + initiative, с ограничением 1-10), моделью не заполняется. null, если оценивать нечего: все критерии неприменимы либо contact_type = 'внутренний разговор'."
+    },
+    "score_breakdown": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "greeting_ok",
+        "needs_discovered",
+        "objections_handled",
+        "next_step_secured",
+        "initiative"
+      ],
+      "description": "Критерии оценки. null = критерий неприменим к этой коммуникации.",
+      "properties": {
+        "greeting_ok": {
+          "type": ["boolean", "null"],
+          "description": "Поздоровался и обозначил себя или компанию."
+        },
+        "needs_discovered": {
+          "type": ["boolean", "null"],
+          "description": "Задал хотя бы один вопрос о потребности или ситуации клиента."
+        },
+        "objections_handled": {
+          "type": ["boolean", "null"],
+          "description": "Все возражения получили содержательный ответ; null, если возражений не было."
+        },
+        "next_step_secured": {
+          "type": ["boolean", "null"],
+          "description": "Следующий шаг назван конкретно и клиент его подтвердил."
+        },
+        "initiative": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Баллы за инициативу сверх критериев: допродажа, работа с бюджетом, ускорение сделки. 0, если инициативы не было."
+        }
+      }
+    },
+    "sentiment": {
+      "type": "string",
+      "enum": ["positive", "neutral", "negative"],
+      "description": "Общая тональность контакта со стороны клиента."
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["high", "medium", "low"],
+      "description": "Уверенность в извлечённых данных."
+    },
+    "missing_fields": {
+      "type": "array",
+      "description": "Имена полей, информации по которым в источнике нет.",
+      "items": { "type": "string" }
+    }
+  }
+}
