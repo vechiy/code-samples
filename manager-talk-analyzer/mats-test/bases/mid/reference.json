@@ -1,0 +1,57 @@
+{
+  "source_kind": "audio",
+  "employee_id": "ext-9999",
+  "identity": {
+    "employee": "ext-9999",
+    "method": "filename",
+    "similarity": null
+  },
+  "source_ref": {
+    "file": "auto-1758240000-70000000000-9999.wav",
+    "timecodes": true
+  },
+  "contact_type": "входящий звонок",
+  "participants": {
+    "manager": "Андрей",
+    "client": null,
+    "client_company": null
+  },
+  "summary": "Клиентка позвонила в компанию и спросила, поставляется ли насос НС-200. Менеджер подтвердил наличие на складе и назвал срок отгрузки: три рабочих дня с момента оплаты. Клиентка возразила, что три дня долго и у других она видела быстрее, а также попросила ясности по цене. Менеджер сказал, что назовёт цену после уточнения у склада, срока и способа не назвал, возражение о сроке не отработал. Разговор закончился ничем: клиентка сказала, что подумает.",
+  "client_request": "Узнать, поставляется ли насос НС-200, и уточнить срок отгрузки и цену.",
+  "objections": [
+    {
+      "objection": "Срок отгрузки три рабочих дня слишком долгий, у других быстрее",
+      "handled": false,
+      "how": null
+    }
+  ],
+  "agreements": [],
+  "next_step": {
+    "action": null,
+    "deadline": null
+  },
+  "products_mentioned": [
+    "насос НС-200"
+  ],
+  "amounts_mentioned": [],
+  "competitors_mentioned": [],
+  "score": 4,
+  "score_breakdown": {
+    "greeting_ok": true,
+    "needs_discovered": false,
+    "objections_handled": false,
+    "next_step_secured": false,
+    "initiative": 0
+  },
+  "sentiment": "neutral",
+  "confidence": "high",
+  "missing_fields": [
+    "participants.client",
+    "participants.client_company",
+    "agreements",
+    "next_step.action",
+    "next_step.deadline",
+    "amounts_mentioned",
+    "competitors_mentioned"
+  ]
+}

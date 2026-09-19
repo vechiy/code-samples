@@ -1,0 +1,61 @@
+{
+  "_translation_note": "Comments and docstrings translated to English for review; logic unchanged. Segment `text` values are the WER reference and are deliberately left in the original Russian.",
+  "call": "call-01",
+  "source": "source wav is kept outside the repository; the call-01 -> file mapping lives in analytic/golden_map.md",
+  "duration_s": 51.64,
+  "sample_rate": 8000,
+  "revision": "2026-08-27: texts of id 1 and id 6-7 canonicalised; id 5 marked unresolvable_mono under the owner's allowance",
+  "changelog": [
+    {"date": "2026-08-26", "what": "octave fix of zones 9.3-12.2: former zone 5 split into id 5/6/7, id 6 given to the caller; former zone 7 (14.95-15.25) removed; ids renumbered end to end, the previous number kept in id_before", "why": "autocorrelation pitch at 8 kHz produced an octave error - a male voice at 97 Hz was read as 195 Hz"},
+    {"date": "2026-08-27", "what": "id 1: 'аль' -> 'алло' (reference text, deliberately left in Russian)", "why": "owner's decision: canonical text of the reference dialogue; the previous entry was a scrap of the transcript and penalised correct recognition"},
+    {"date": "2026-08-27", "what": "id 6: 'там решили вопрос-то, нет?' -> 'там решили вопрос-то?' (reference text, deliberately left in Russian)", "why": "owner's decision: the word 'нет' belongs to the manager's reply (id 7), not to the caller's question. The doubled 'нет' in the 2026-08-26 revision was a table-assembly mistake, not the owner's labelling"},
+    {"date": "2026-08-27", "what": "id 7: allowance status lifted", "why": "the owner confirmed the original labelling: 'нет' is a separate manager utterance"},
+    {"date": "2026-08-27", "what": "id 5: marked resolution = unresolvable_mono", "why": "owner's allowance: the lost turn is a backchannel 'да'; it carries no value for LLM extraction or for dialogue metrics, and the limit has been measured (five embedding windows, best margin +0.043, below the false-positive margin +0.056 in the negative zone; there is no manager segment at all inside the diarization gap 9.03-9.41). Revisit once stereo from the PBX becomes available"}
+  ],
+  "note": "The reference was built from the owner's manual labelling (start of the call), signal analysis (energy VAD + fundamental frequency) and the service transcript. Sex by pitch: female ~165-240 Hz, male ~86-146 Hz. WARNING: autocorrelation pitch at 8 kHz gives an octave error - a male voice at 97-105 Hz reads as 195-205 Hz and looks female. That very error made the first revision of the reference assign zone 9.3-12.2 to the manager in full; check sex by the lowest strong autocorrelation peak, not by the highest.",
+  "speakers": {
+    "S1": {"sex": "F", "role": "manager", "note": "quiet channel, peaks -24..-37 dB"},
+    "S2": {"sex": "M", "role": "caller", "note": "loud channel, peaks -11..-18 dB"}
+  },
+  "text_status_legend": {
+    "owner_confirmed": "text confirmed by the owner by ear",
+    "from_service": "text from the current service transcript; attribution and boundaries verified by pitch; checking by ear is still desirable",
+    "corrected_by_pitch": "service text, but the speaker or the boundary was corrected by fundamental frequency",
+    "ambiguous": "the owner decides while listening",
+    "unknown": "speech is physically there, the text is not; filled in by the owner after the best run"
+  },
+  "masking": "a token in angle brackets (<ИМЯ>) is an anonymisation mask: in WER it matches any word of the run",
+  "segments": [
+    {"id": 1,  "id_before": 1,  "start": 0.39,  "end": 1.75,  "speaker": "S1", "text": "алло", "text_status": "owner_confirmed", "peak_db": -24.0, "lost_by_service": true, "note": "2026-08-27 the owner canonicalised the text: «алло», not «аль»; the earlier entry was a scrap of the transcript"},
+    {"id": 2,  "id_before": 2,  "start": 1.75,  "end": 2.82,  "speaker": "S2", "text": "это опять <ИМЯ>", "text_status": "owner_confirmed", "peak_db": -11.6, "lost_by_service": false, "note": "the service gave 'это опять' to the manager, '<ИМЯ>' drifted into the next utterance"},
+    {"id": 3,  "id_before": 3,  "start": 3.56,  "end": 3.74,  "speaker": "S1", "text": "да", "text_status": "owner_confirmed", "peak_db": -32.5, "lost_by_service": true},
+    {"id": 4,  "id_before": 4,  "start": 4.13,  "end": 8.97,  "speaker": "S2", "text": "а я забыл спросить а мы вот то что им поставки отвозили они документы же нам но никакие не дают", "text_status": "owner_confirmed", "peak_db": -12.5, "lost_by_service": false},
+    {"id": 5, "id_before": 5, "start": 9.28, "end": 9.42, "speaker": "S1", "text": "да", "text_status": "owner_confirmed", "peak_db": -37.3, "lost_by_service": true, "note": "quiet manager micro-segment, 0.14 s, -37 dB; carved out of former zone 5 during the octave fix of 2026-08-26. Losing this word costs two turns: it sits between two caller turns, so it glues three reference turns into one (19 -> 17)", "resolution": "unresolvable_mono", "resolution_note": "Owner's allowance of 2026-08-27: on mono 8 kHz this turn is unresolvable. The word sits inside a diarization gap (9.03-9.41), there is no manager segment there, and 41 % of the word is covered by the caller's segment. Five embedding windows were tried: the best corpus-profile margin is +0.043 against a false positive of +0.056 in the negative zone, so no threshold separates them. A backchannel 'да' carries no value for LLM extraction or for dialogue metrics. REVIEW CONDITION: stereo from the PBX (separate channels); the mark is then lifted and criterion (a) is counted over all 19 turns."},
+    {"id": 6,  "id_before": 5,  "start": 9.42,  "end": 12.00, "speaker": "S2", "text": "там решили вопрос-то?", "text_status": "owner_confirmed", "peak_db": -10.8, "lost_by_service": false, "note": "former zone 5 was credited to the manager in full because of the octave pitch error (F0 read as 195 Hz instead of 97); the owner confirmed that the caller is speaking. The service diarization puts SPEAKER_01 here (9.41-9.89, 10.22-11.52, 11.84-12.03), so it agrees with the fix. 2026-08-27: the word «нет» was taken out of the question, it belongs to the manager's reply (id 7)"},
+    {"id": 7,  "id_before": 5,  "start": 12.00, "end": 12.18, "speaker": "S1", "text": "нет", "text_status": "owner_confirmed", "peak_db": -32.6, "lost_by_service": true, "note": "2026-08-27 the owner confirmed the original labelling: 'нет' is a separate quiet manager utterance, not the tail of S2's question. In the recording the word occurs once, and S2's question does not contain it. The signal does not show the boundary: 11.86-12.16 runs as a single speech chunk of even energy"},
+    {"id": 8,  "id_before": 6,  "start": 13.51, "end": 14.90, "speaker": "S2", "text": null, "text_status": "ambiguous", "peak_db": -11.9, "lost_by_service": false, "note": "after the octave fix the first of the two candidates ('там решили вопрос то') took zone 6, so what remains here is 'а чё мы опять им везем просто так'; awaiting the owner's confirmation"},
+    {"id": 9,  "id_before": 8,  "start": 15.93, "end": 19.23, "speaker": "S1", "text": null, "text_status": "unknown", "peak_db": -30.8, "lost_by_service": true, "note": "the main loss: 3.3 s of quiet female speech; only the tail 'ну понятно' was recognised"},
+    {"id": 10, "id_before": 9,  "start": 20.88, "end": 24.46, "speaker": "S2", "text": "короче я тогда ничего не спрашиваю я даю как как обычно и уезжаю", "text_status": "from_service", "peak_db": -11.9, "lost_by_service": false},
+    {"id": 11, "id_before": 10, "start": 24.87, "end": 30.16, "speaker": "S1", "text": "сейчас узнаем я не могу туда опять дозвониться это какое то ужасное как это транспортное меня бесит оно", "text_status": "from_service", "peak_db": -26.4, "lost_by_service": false, "note": "quiet, yet recognised; the text quality still needs checking"},
+    {"id": 12, "id_before": 11, "start": 31.21, "end": 32.85, "speaker": "S2", "text": "ну я ничем не могу помочь", "text_status": "from_service", "peak_db": -17.9, "lost_by_service": false},
+    {"id": 13, "id_before": 12, "start": 33.00, "end": 35.40, "speaker": "S1", "text": "я уже по всем номерам уже звоню пока не могу дозвониться", "text_status": "from_service", "peak_db": -25.9, "lost_by_service": false, "note": "quiet (-26..-35), still recognised; this is the survival edge of the VAD"},
+    {"id": 14, "id_before": 13, "start": 35.50, "end": 37.08, "speaker": "S2", "text": "а сам клиент что", "text_status": "from_service", "peak_db": -11.3, "lost_by_service": false},
+    {"id": 15, "id_before": 14, "start": 37.89, "end": 39.59, "speaker": "S1", "text": "на импорт им все равно", "text_status": "from_service", "peak_db": -22.3, "lost_by_service": false},
+    {"id": 16, "id_before": 15, "start": 39.92, "end": 41.21, "speaker": "S2", "text": "ну понятно", "text_status": "corrected_by_pitch", "peak_db": -16.4, "lost_by_service": false, "note": "the service glued 'там им' onto this turn; it is the start of the female utterance id 17"},
+    {"id": 17, "id_before": 16, "start": 42.28, "end": 45.34, "speaker": "S1", "text": "там им меньше денег берут они вот туда и уйдут", "text_status": "corrected_by_pitch", "peak_db": -21.9, "lost_by_service": false, "note": "the opening 'там им' was returned to S1 by pitch"},
+    {"id": 18, "id_before": 17, "start": 46.06, "end": 46.82, "speaker": "S2", "text": "ну я понял", "text_status": "from_service", "peak_db": -17.8, "lost_by_service": false},
+    {"id": 19, "id_before": 18, "start": 48.44, "end": 49.31, "speaker": "S2", "text": "ладно хорошо", "text_status": "from_service", "peak_db": -13.6, "lost_by_service": false},
+    {"id": 20, "id_before": 19, "start": 49.61, "end": 51.00, "speaker": "S1", "text": null, "text_status": "unknown", "peak_db": -31.5, "lost_by_service": true, "note": "the final utterance is lost completely, probably a goodbye"}
+  ],
+  "removed_segments": [
+    {"id_before": 7, "start": 14.95, "end": 15.25, "speaker": "S1", "text": "нет", "reason": "removed on 2026-08-26 by the owner's decision: there is no separate manager insert here, the interval belongs to the tail of S2's utterance (F0 100-145 Hz, peak -13.5 dB)"}
+  ],
+  "lost_zones_ids": [1, 3, 5, 7, 9, 20],
+  "metrics_targets": {
+    "coverage_lost_zones": "words appear in at least 4 of the 6 loss zones",
+    "attribution_accuracy_time": ">= 0.90 by speech time",
+    "wer": "no worse than the baseline on owner_confirmed and from_service segments",
+    "anomalies": "0 utterances faster than 6 words/s and 0 utterances over silence",
+    "structure": "the turn sequence matches the reference; a variant without turns marked resolution = unresolvable_mono is allowed (currently id 5, gate 17 turns out of 19)"
+  }
+}

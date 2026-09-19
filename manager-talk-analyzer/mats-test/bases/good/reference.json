@@ -1,0 +1,67 @@
+{
+  "source_kind": "audio",
+  "employee_id": "ext-9999",
+  "identity": {
+    "employee": "ext-9999",
+    "method": "filename",
+    "similarity": null
+  },
+  "source_ref": {
+    "file": "auto-1758240000-70000000000-9999.wav",
+    "timecodes": true
+  },
+  "contact_type": "входящий звонок",
+  "participants": {
+    "manager": "Андрей",
+    "client": null,
+    "client_company": null
+  },
+  "summary": "Клиентка обратилась за насосом НС-200 для котельной на один контур. Менеджер выяснил задачу и срок, назвал цену двести сорок тысяч рублей с НДС и наличие на складе. На возражение о цене ответил составом поставки: гарантия два года и шеф-монтаж входят в сумму; на возражение о сроке предложил резерв и отгрузку первым рейсом, то есть сутки после оплаты. Стороны договорились: счёт сегодня, созвон завтра в десять для подтверждения оплаты.",
+  "client_request": "Подобрать насос НС-200 для небольшой котельной на один контур и получить его не позже конца месяца.",
+  "objections": [
+    {
+      "objection": "Цена двести сорок тысяч выше, чем клиентка рассчитывала",
+      "handled": true,
+      "how": "Менеджер объяснил, что в цену входят гарантия два года и шеф-монтаж"
+    },
+    {
+      "objection": "Срок отгрузки три рабочих дня слишком долгий, у других быстрее",
+      "handled": true,
+      "how": "Менеджер предложил резерв и отгрузку первым рейсом, сутки после оплаты"
+    }
+  ],
+  "agreements": [
+    "Менеджер выставляет счёт сегодня",
+    "Созвон завтра в десять для подтверждения оплаты"
+  ],
+  "next_step": {
+    "action": "Выставить счёт и созвониться для подтверждения оплаты",
+    "deadline": "завтра в десять"
+  },
+  "products_mentioned": [
+    "насос НС-200"
+  ],
+  "amounts_mentioned": [
+    {
+      "value": 240000,
+      "currency": "RUB",
+      "context": "цена насоса НС-200 с НДС"
+    }
+  ],
+  "competitors_mentioned": [],
+  "score": 10,
+  "score_breakdown": {
+    "greeting_ok": true,
+    "needs_discovered": true,
+    "objections_handled": true,
+    "next_step_secured": true,
+    "initiative": 1
+  },
+  "sentiment": "positive",
+  "confidence": "high",
+  "missing_fields": [
+    "participants.client",
+    "participants.client_company",
+    "competitors_mentioned"
+  ]
+}
