@@ -1,36 +1,42 @@
-# ИИ-помощник: харнесс запроса (выдержка из рабочей системы)
+# AI assistant: the request harness (excerpt from a production system)
 
-Корпоративный чат-ассистент с инструментами: аналитика по кубу продаж, поиск по
-внутренним документам, веб-поиск, чтение вложений, генерация изображений.
-Около 210 пользователей, набор из 19 булевых прав вместо ролей. Здесь показан
-**один путь одного запроса** — от проверки права до ответа, — а не вся система.
+A corporate chat assistant with tools: sales-cube analytics, search over internal
+documents, web search, reading attachments, image generation. Around 210 users and
+a set of 19 boolean permissions instead of roles. What is shown here is **one path
+of one request** — from the permission check to the answer — not the whole system.
 
-Все запросы к облачным LLM проходят через внешний сервис маскирования: он
-заменяет имена, контрагентов и прочие идентификаторы на токены вида
-`[[CUSTOMER_4B319A8C1CF7]]`. Сервис внешний, потому что словарь замен не должен
-жить в приложении, которое ходит в интернет. **Fail-closed здесь означает
-буквальное:** если сервис недоступен или вернул `blocked`, поднимается исключение
-до входа в цикл tool-calling, то есть до единственного места, где выполняется
-HTTP-запрос к провайдеру. Отказ маскирования = отказ запроса, а не отправка
-сырого текста.
+Every request to a cloud LLM goes through an external masking service: it replaces
+names, counterparties and other identifiers with tokens of the form
+`[[CUSTOMER_4B319A8C1CF7]]`. The service is external because the substitution
+dictionary must not live inside an application that talks to the internet.
+**Fail-closed here is meant literally:** if the service is unavailable or returns
+`blocked`, an exception is raised before the tool-calling loop is entered — that is,
+before the single place where an HTTP request to the provider is made. A masking
+failure means the request fails, not that raw text is sent.
 
-`sessionId` выдаёт сервис маскирования на каждый вызов `tokenize`. В одном ответе
-таких сессий несколько: одна на сообщение пользователя и ещё по одной на каждый
-результат инструмента. Токен, восстановленный **чужой** сессией, возвращает не
-исходную подстроку, а каноническую запись справочника — то есть другое юрлицо.
-Поэтому `SessionTokenMap` запоминает, в какой сессии родился каждый токен, и
-восстанавливает каждый своей; токен без своей сессии остаётся в тексте как есть.
-Тихая подмена в аналитике хуже видимой поломки.
+The `sessionId` is issued by the masking service on every `tokenize` call. A single
+answer spans several such sessions: one for the user message and one more for each
+tool result. A token restored through a **foreign** session comes back not as the
+original substring but as the canonical directory entry — that is, as a different
+legal entity. This is why `SessionTokenMap` remembers which session each token was
+born in and restores each one through that session; a token with no session of its
+own is left in the text as is. A silent substitution in analytics is worse than a
+visible breakage.
 
-Инструменты возвращают `{"error": "..."}` и никогда не бросают исключение наружу:
-ответ инструмента — это сообщение модели, а не ответ пользователю. Модель должна
-увидеть отказ, объяснить его человеку и при желании попробовать иначе. Упавший
-инструмент, роняющий SSE-стрим, оборвал бы весь ответ. Техническая причина уходит
-в stderr, модели достаётся нейтральный текст без имён таблиц и колонок.
+Tools return `{"error": "..."}` and never raise out: a tool response is a message to
+the model, not an answer to the user. The model has to see the refusal, explain it
+to the human and, if it makes sense, try a different way. A failing tool that took
+down the SSE stream would cut off the whole answer. The technical cause goes to
+stderr; the model gets neutral text with no table or column names in it.
 
-**Читать с `llm_excerpt.py`** — это и есть харнесс. Дальше `db_excerpt.py`
-(двойной гейт прав и диспетчер), затем `crypto.py` (контракт со шлюзом).
-Тесты в `tests/` герметичны: ни сети, ни базы.
+**Start with `llm_excerpt.py`** — that is the harness itself. Then `db_excerpt.py`
+(the double permission gate and the dispatcher), then `crypto.py` (the contract with
+the masking gateway). The tests in `tests/` are hermetic: no network, no database.
+
+Comments and docstrings were translated to English for review; the logic is
+unchanged. Strings that production sends to the model or shows to the user are
+still in Russian — the tests assert on some of them — and each one carries its
+English meaning in an adjacent comment.
 
 ```
 User        -> FastAPI    : POST /chats/{id}/messages (JWT)

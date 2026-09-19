@@ -1,12 +1,14 @@
 """
-Обёртка над внешним сервисом маскирования данных.
+Wrapper around the external data masking service.
 
-Эндпоинты:
-    POST /api/v1/tokenize  — прямое преобразование (имена → токены).
-    POST /api/v1/restore   — обратное (токены → имена).
+Comments and docstrings translated to English for review; logic unchanged.
 
-Файлы передаются по пути на диске (storageRef). Сервис должен иметь доступ
-к папке STORAGE_DIR. Файлы пока не чистятся — накапливаются.
+Endpoints:
+    POST /api/v1/tokenize  — forward direction (names → tokens).
+    POST /api/v1/restore   — reverse direction (tokens → names).
+
+Files are passed by their path on disk (storageRef), so the service needs
+access to STORAGE_DIR. Files are not cleaned up yet — they accumulate.
 """
 
 import os
@@ -21,7 +23,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Конфиг
+# Configuration
 TOKENIZE_URL = os.getenv("CRYPTO_TOKENIZE_URL",
                          "http://masking-service.example/api/v1/tokenize")
 RESTORE_URL  = os.getenv("CRYPTO_RESTORE_URL",
@@ -34,14 +36,14 @@ TIMEOUT      = float(os.getenv("CRYPTO_TIMEOUT_SEC", "60"))
 
 
 class CryptoError(RuntimeError):
-    """Ошибка обращения к сервису шифрации."""
+    """Failure while calling the masking service."""
 
 
-# Расширение -> (тип вложения, content_type).
-# ТАБЛИЦЫ (CSV/XLSX) сервис маскирования принимает как файл и отдаёт маскированную копию.
-# ДОКУМЕНТЫ (PDF/DOCX/TXT) он как вложение НЕ принимает (проверено на dev: HTTP 400),
-# маскированной копии для них не существует — их текст извлекается локально и маскируется
-# на барьере результата тула (llm.tokenize_text «результат инструмента»). См. read_uploaded.
+# Extension -> (attachment type, content_type).
+# TABLES (CSV/XLSX) are accepted by the masking service as a file, and it returns a masked copy.
+# DOCUMENTS (PDF/DOCX/TXT) are NOT accepted as an attachment (verified on dev: HTTP 400),
+# so no masked copy of them exists — their text is extracted locally and masked at the
+# tool-result barrier (llm.tokenize_text, "tool result"). See read_uploaded.
 FILE_TYPES: dict[str, tuple[str, str]] = {
     ".csv": ("CSV", "text/csv"),
     ".xlsx": ("XLSX",
@@ -54,23 +56,23 @@ FILE_TYPES: dict[str, tuple[str, str]] = {
     ".txt": ("TXT", "text/plain"),
 }
 
-# Типы, которые сервис маскирования не принимает как вложение (см. комментарий выше).
+# Types the masking service does not accept as an attachment (see the comment above).
 DOCUMENT_FILE_TYPES = frozenset({"PDF", "DOCX", "TXT"})
 
 
 @dataclass
 class Attachment:
-    """Описание вложения для запроса/ответа."""
+    """An attachment as described in a request/response."""
     attachment_id: str
     file_name: str
     storage_ref: str
     content_type: str = "text/csv"
     file_type: str = "CSV"             # CSV | XLSX | PDF | DOCX | TXT
-    status: Optional[str] = None       # MASKED | RESTORED (только в ответе)
+    status: Optional[str] = None       # MASKED | RESTORED (response only)
 
 
 def is_document(attachment: Any) -> bool:
-    """Документ (PDF/DOCX/TXT) — его нельзя слать в tokenize как вложение."""
+    """A document (PDF/DOCX/TXT) — it must not be sent to tokenize as an attachment."""
     return (getattr(attachment, "file_type", "") or "").upper() in DOCUMENT_FILE_TYPES
 
 
@@ -84,7 +86,7 @@ class TokenizeResult:
     masked_attachments: list[Attachment]
     detected_entities: list[dict]
     processing_time_ms: int
-    raw: dict = field(default_factory=dict)  # полный ответ для дебага
+    raw: dict = field(default_factory=dict)  # full service response, for debugging
 
 
 @dataclass
@@ -98,7 +100,7 @@ class RestoreResult:
 
 
 # =============================================================================
-# Низкоуровневый POST с обработкой ошибок
+# Low-level POST with error handling
 # =============================================================================
 
 def _post(url: str, payload: dict) -> dict:
@@ -129,9 +131,9 @@ def tokenize(
     attachments: Optional[list[Attachment]] = None,
 ) -> TokenizeResult:
     """
-    Прямая токенизация текста (и опционально вложений).
-    Возвращает TokenizeResult со всеми данными от сервиса.
-    Если blocked=True — отправлять результат в LLM нельзя, юзеру показать причину.
+    Forward tokenization of text (and, optionally, of attachments).
+    Returns a TokenizeResult carrying everything the service reported.
+    If blocked=True the result must not be sent to an LLM; show the reason to the user.
     """
     rid = request_id or str(uuid.uuid4())
 
@@ -194,7 +196,7 @@ def restore(
     attachments: Optional[list[Attachment]] = None,
 ) -> RestoreResult:
     """
-    Обратная токенизация. session_id и request_id берутся из предыдущего tokenize.
+    Reverse tokenization. session_id and request_id come from the preceding tokenize.
     """
     payload = {
         "requestId": request_id,
@@ -235,13 +237,13 @@ def restore(
 
 
 # =============================================================================
-# Утилиты для работы с файлами
+# File helpers
 # =============================================================================
 
 def save_uploaded_file(uploaded_file, prefix: str = "upload") -> Attachment:
     """
-    Сохранить streamlit UploadedFile в STORAGE_DIR и вернуть Attachment.
-    Имя делается уникальным через uuid, чтобы не пересекаться с другими.
+    Save a streamlit UploadedFile into STORAGE_DIR and return an Attachment.
+    The name is made unique with a uuid so that uploads cannot collide.
     """
     STORAGE_DIR.mkdir(parents=True, exist_ok=True)
     ext = Path(uploaded_file.name).suffix.lower()
@@ -262,14 +264,14 @@ def save_uploaded_file(uploaded_file, prefix: str = "upload") -> Attachment:
 
 
 def is_configured() -> bool:
-    """Проверка что эндпоинты заданы."""
+    """Check that the endpoints are configured."""
     return bool(TOKENIZE_URL and RESTORE_URL)
 
 
 def health_check() -> tuple[bool, str]:
     """
-    Простая проверка доступности сервиса. Делает короткий tokenize.
-    Возвращает (ok, message).
+    Simple availability probe: performs a short tokenize.
+    Returns (ok, message).
     """
     try:
         res = tokenize(
@@ -277,7 +279,7 @@ def health_check() -> tuple[bool, str]:
             user_id="healthcheck",
             request_id=f"hc-{uuid.uuid4().hex[:8]}",
         )
-        return True, f"OK ({res.processing_time_ms} мс, session={res.session_id[:8]}...)"
+        return True, f"OK ({res.processing_time_ms} ms, session={res.session_id[:8]}...)"
     except CryptoError as e:
         return False, str(e)
     except Exception as e:
@@ -295,12 +297,12 @@ def list_audit_events(
     request_id: Optional[str] = None,
     session_id: Optional[str] = None,
     user_id: Optional[str] = None,
-    created_from: Optional[str] = None,     # ISO 8601, например 2026-05-06T00:00:00+03:00
+    created_from: Optional[str] = None,     # ISO 8601, e.g. 2026-05-06T00:00:00+03:00
     created_to: Optional[str] = None,
 ) -> dict:
     """
-    Список событий аудита с фильтрами и пагинацией.
-    Возвращает dict как от сервиса: items, page, size, totalElements, totalPages, hasNext.
+    Audit events with filtering and pagination.
+    Returns the service dict as is: items, page, size, totalElements, totalPages, hasNext.
     """
     params = {"page": page, "size": size}
     if status:        params["status"] = status
@@ -321,7 +323,7 @@ def list_audit_events(
 
 
 def get_audit_event(event_id: str, include_archive_ref: bool = False) -> dict:
-    """Карточка одного события."""
+    """A single audit event."""
     params = {"includeArchiveRef": "true"} if include_archive_ref else None
     try:
         r = requests.get(f"{AUDIT_URL}/events/{event_id}",
@@ -336,5 +338,5 @@ def get_audit_event(event_id: str, include_archive_ref: bool = False) -> dict:
 
 
 def get_archive_url(archive_token: str) -> str:
-    """URL для скачивания ZIP-архива события (передать юзеру в st.link_button)."""
+    """Download URL for the event ZIP archive (hand it to the user via st.link_button)."""
     return f"{AUDIT_URL}/archives/{archive_token}"

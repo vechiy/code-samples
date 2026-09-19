@@ -1,71 +1,74 @@
-"""ВЫДЕРЖКА из backend/llm.py рабочей системы. Не самостоятельный модуль.
+"""EXCERPT from backend/llm.py of the production system. Not a standalone module.
 
-Что включено (нумерация строк — оригинального файла):
-    67-186   class SessionTokenMap — учёт того, какая сессия маскирования
-             породила каждый токен, и восстановление каждого токена своей
-             сессией.
-    472-740  chat_with_tools_streaming — цикл tool-calling для SSE-чата:
-             барьеры маскирования, вызов провайдера, учёт расхода,
-             диспетчеризация инструментов.
+Comments and docstrings translated to English for review; logic unchanged.
 
-Что опущено (и почему файл не импортируется как есть):
-    1-66     импорты, конфигурация провайдеров, MAX_TOOL_ITERATIONS,
+What is included (line numbers are those of the original file):
+    67-186   class SessionTokenMap — tracking which masking session produced each
+             token, and restoring every token through its own session.
+    472-740  chat_with_tools_streaming — the tool-calling loop behind the SSE chat:
+             masking barriers, provider call, usage accounting, tool dispatch.
+
+What is omitted (and why the file does not import as is):
+    1-66     imports, provider configuration, MAX_TOOL_ITERATIONS,
              _TOKEN_RE, _BATCH_SEPARATOR;
-    187-293  реестр моделей (ModelInfo, списки моделей), классы исключений
+    187-293  the model registry (ModelInfo, model lists), the exception classes
              LLMProviderUnavailable / MaskingBlockedError, user_facing_error;
-    294-345  _post_to_llm — HTTP к провайдеру с ретраем только транспортных сбоев;
-    346-470  chat_with_tools — несходная (не-SSE) версия того же цикла.
+    294-345  _post_to_llm — HTTP to the provider, retrying transport failures only;
+    346-470  chat_with_tools — the non-streaming version of the same loop.
 
-Зависимости, которых здесь тоже нет: crypto (включён в сэмпл отдельным файлом),
-db (включён выдержкой db_excerpt.py), usage_storage, analyze_uploaded.
+Dependencies that are also absent here: crypto (shipped as its own file in this
+sample), db (shipped as the db_excerpt.py excerpt), usage_storage, analyze_uploaded.
 
-Изменения относительно оригинала — только удаление и замена
-конфиденциальных строк: наименования контрагентов в докстринге
-SessionTokenMap заменены на вымышленные, имя облачного провайдера в
-комментарии обезличено. Логика не менялась.
+The only changes relative to the original are the removal and substitution of
+confidential strings: the counterparty names in the SessionTokenMap docstring were
+replaced with fictional ones, and the cloud provider name in a comment was made
+generic. The logic is untouched.
+
+Strings that are sent to the model or shown to the user stay in Russian, as in
+production; their English meaning is given in an adjacent comment.
 """
 
 
 
 class SessionTokenMap:
-    """Кто из сессий породил каждый токен — и восстановление каждого своей.
+    """Which session produced each token — and restoring each token through its own.
 
-    Зачем это нужно. В одном ответе сессий несколько: одна на сообщение
-    пользователя и ещё по одной на каждый результат инструмента. Раньше
-    восстановление перебирало сессии подряд и отдавало сервису весь текст: первая
-    сессия натыкалась на токены, рождённые во второй, и подставляла вместо них
-    каноническую запись справочника. До своей сессии очередь доходила, когда
-    подставлять уже нечего.
+    Why this is needed. A single answer spans several sessions: one for the user
+    message and one more for every tool result. Restoration used to walk the
+    sessions in order, handing the whole text to the service each time: the first
+    session ran into tokens born in the second and substituted the canonical
+    directory entry for them. By the time the owning session got its turn, there
+    was nothing left to substitute.
 
-    Пока сервис резолвил токен одинаково в любой сессии, это не проявлялось.
-    После его исправления от 05.08 своя сессия отдаёт исходную подстроку, а чужая
-    каноническую запись, и порядок перебора стал определять результат: на живых
-    запросах имена совпадали с исходными в 5, 7 и 9 случаях из 10.
-    Воспроизведено: тот же токен через свою сессию даёт «Alpha Trading LLC»,
-    через чужую — «Alpha Trading LLC (Грузополучатель, Москва)», то есть
-    ДРУГОЕ юрлицо.
+    As long as the service resolved a token identically in any session this stayed
+    invisible. After the service was fixed on 05.08, the owning session returns the
+    original substring while a foreign one returns the canonical entry, so the walk
+    order began to decide the result: on live requests the names matched the
+    originals in 5, 7 and 9 cases out of 10. Reproduced: the same token through its
+    own session yields "Alpha Trading LLC", through a foreign one
+    "Alpha Trading LLC (consignee, Moscow)" — that is, a DIFFERENT legal entity.
 
-    Поэтому здесь запоминается, в какой сессии родился каждый токен, и каждый
-    восстанавливается только своей. Перебора всех сессий подряд больше нет.
+    Hence this class remembers which session each token was born in and restores
+    each one only through that session. The walk over all sessions is gone.
     """
 
     def __init__(self, request_id: str) -> None:
         self._request_id = request_id
-        # токен → сессия, в которой он впервые появился
+        # token → the session in which it first appeared
         self._owner: dict[str, str] = {}
         self._sessions: list[str] = []
 
     @property
     def sessions(self) -> list[str]:
-        """Порядок появления сессий. Нужен только логам: на восстановление
-        он больше не влияет."""
+        """The order in which sessions appeared. Only logs need it: it no longer
+        affects restoration."""
         return list(self._sessions)
 
     def remember(self, masked_text: str, session_id: str | None) -> None:
-        """Связать токены из маскированного текста с их сессией.
+        """Bind the tokens of a masked text to their session.
 
-        Первая сессия выигрывает: один и тот же токен, встреченный дважды,
-        обозначает одно значение, и перепривязка ничего не изменила бы.
+        First session wins: the same token seen twice denotes the same value, so
+        rebinding it would change nothing.
         """
         if not session_id:
             return
@@ -75,12 +78,13 @@ class SessionTokenMap:
             self._owner.setdefault(token, session_id)
 
     def _restore_batch(self, tokens: list[str], session_id: str) -> dict[str, str]:
-        """Восстановить токены одной сессии. Возвращает токен → значение.
+        """Restore the tokens of one session. Returns token → value.
 
-        Пакетом, а не по одному вызову на токен: ответ с таблицей на десятки
-        строк дал бы десятки round-trip'ов к сервису. Если число строк в ответе
-        не совпало с числом токенов — разбор пакета ненадёжен, и мы честно
-        откатываемся на поштучное восстановление, а не гадаем по позициям.
+        In a batch rather than one call per token: an answer holding a table of
+        dozens of rows would mean dozens of round trips to the service. If the
+        number of lines in the response does not match the number of tokens, the
+        batch cannot be parsed reliably, so we fall back honestly to restoring them
+        one by one instead of guessing by position.
         """
         payload = _BATCH_SEPARATOR.join(tokens)
         try:
@@ -88,7 +92,7 @@ class SessionTokenMap:
                 text=payload, session_id=session_id, request_id=self._request_id
             ).restored_text
         except crypto.CryptoError as exc:
-            print(f"[RESTORE] сессия {session_id[:8]}: пакет не восстановлен: {exc}",
+            print(f"[RESTORE] session {session_id[:8]}: batch not restored: {exc}",
                   file=sys.stderr)
             return {}
 
@@ -97,8 +101,8 @@ class SessionTokenMap:
             return dict(zip(tokens, parts))
 
         print(
-            f"[RESTORE] сессия {session_id[:8]}: пакет вернул {len(parts)} строк "
-            f"на {len(tokens)} токенов — поштучно",
+            f"[RESTORE] session {session_id[:8]}: batch returned {len(parts)} lines "
+            f"for {len(tokens)} tokens — falling back to one by one",
             file=sys.stderr,
         )
         values: dict[str, str] = {}
@@ -108,16 +112,17 @@ class SessionTokenMap:
                     text=token, session_id=session_id, request_id=self._request_id
                 ).restored_text
             except crypto.CryptoError as exc:
-                print(f"[RESTORE] токен {token} не восстановлен: {exc}", file=sys.stderr)
+                print(f"[RESTORE] token {token} not restored: {exc}", file=sys.stderr)
         return values
 
     def restore(self, text: str) -> str:
-        """Восстановить текст: каждый токен — сессией, в которой он родился.
+        """Restore a text: every token through the session it was born in.
 
-        Токен, для которого своей сессии не нашлось, остаётся в тексте как есть.
-        Подставить его чужой сессией нельзя: именно так и появляется чужое
-        юрлицо вместо запрошенного, а тихая подмена в аналитике продаж хуже
-        видимой поломки — её никто не заметит. Сам факт уходит в stderr.
+        A token with no session of its own is left in the text as is. Substituting
+        it through a foreign session is not an option: that is exactly how a
+        different legal entity appears in place of the requested one, and a silent
+        substitution in sales analytics is worse than a visible breakage — nobody
+        would notice it. The fact itself goes to stderr.
         """
         if not text:
             return text
@@ -141,7 +146,7 @@ class SessionTokenMap:
 
         if orphans:
             print(
-                f"[RESTORE] без своей сессии, оставлены как есть: {orphans}",
+                f"[RESTORE] no owning session, left as is: {orphans}",
                 file=sys.stderr,
             )
 
@@ -168,32 +173,33 @@ def chat_with_tools_streaming(
     MVP note: tool calls are resolved synchronously, preserving the masking flow
     from chat_with_tools. The final restored answer is emitted as chunk events.
 
-    image_model_id — выбор модели генерации картинок из UI. Едет сквозь цикл
-    как непрозрачное значение и проверяется по белому списку уже в туле; LLM
-    его не видит и повлиять на него не может.
+    image_model_id — the image generation model picked in the UI. It travels through
+    the loop as an opaque value and is checked against an allowlist inside the tool;
+    the LLM neither sees it nor can influence it.
 
-    image_reference_ids — прикреплённые пользователем картинки-образцы (в порядке
-    прикрепления) для
-    генерации по референсу (img2img). Едет тем же боковым каналом и по той же
-    причине: что приложено, решает человек, а не содержимое чата. Проверку
-    владельца и поддержку моделью делает тул.
+    image_reference_ids — reference images attached by the user (in attachment
+    order) for reference-based generation (img2img). Same side channel, same
+    reason: what is attached is decided by a human, not by the chat content.
+    Ownership and model support are checked by the tool.
 
-    video_model_id — выбор модели генерации видео из UI. Тот же боковой канал:
-    у моделей видео цена отличается в разы, и выбирать её по тексту переписки
-    нельзя. Белый список проверяет тул.
+    video_model_id — the video generation model picked in the UI. Same side channel:
+    video model prices differ several-fold, so the model must not be chosen from the
+    text of the conversation. The allowlist is checked by the tool.
     """
     request_id = f"chat-{uuid.uuid4().hex[:12]}"
     user_id = "fastapi"
     tokens = SessionTokenMap(request_id)
-    # Маскированные версии вложений (для тула read_uploaded): storage_ref → маска,
-    # file_name → оригинальное имя (модель матчит по нему). Оригинал сюда не идёт.
+    # Masked versions of the attachments (for the read_uploaded tool): storage_ref →
+    # the masked copy, file_name → the original name (the model matches on it).
+    # The original never gets here.
     masked_attachments: list[crypto.Attachment] = []
 
-    # Документы (PDF/DOCX/TXT) сервис маскирования как вложение НЕ принимает (HTTP 400) —
-    # маскированной копии файла для них не бывает. Поэтому в tokenize уходят только
-    # таблицы, а документы едут в тул как оригиналы: их текст маскируется барьером
-    # результата тула ниже (tokenize_text «результат инструмента», fail-closed).
-    # Отправить документ в tokenize нельзя не только из принципа: это уронило бы чат.
+    # Documents (PDF/DOCX/TXT) are NOT accepted as an attachment by the masking
+    # service (HTTP 400) — no masked copy of such a file exists. So only tables go
+    # to tokenize, while documents reach the tool as originals: their text is masked
+    # by the tool-result barrier below (tokenize_text "tool result", fail-closed).
+    # Sending a document to tokenize is not merely wrong in principle: it would
+    # bring the chat down.
     table_attachments = [a for a in (attachments or []) if not crypto.is_document(a)]
     doc_attachments = [a for a in (attachments or []) if crypto.is_document(a)]
 
@@ -210,27 +216,27 @@ def chat_with_tools_streaming(
                 prompt=text,
                 user_id=user_id,
                 request_id=request_id,
-                # Любой облачный backend (любой из облачных провайдеров) = external → данные
-                # маскируются. Локально остаётся только ollama. Не ослаблять.
+                # Any cloud backend (any of the cloud providers) = external → the data
+                # is masked. Only ollama stays local. Do not weaken this.
                 external_llm=(model.backend != "ollama"),
                 llm_model=model.id,
                 attachments=message_attachments,
             )
         except crypto.CryptoError as e:
-            raise RuntimeError(f"Ошибка маскирования {what}: {e}") from e
+            raise RuntimeError(f"Masking failed for {what}: {e}") from e
 
         if res.blocked:
             raise MaskingBlockedError(
-                f"Сервис маскирования заблокировал {what}: "
+                f"The masking service blocked {what}: "
                 f"{', '.join(res.block_reasons)}"
             )
 
-        # Токены запоминаются вместе со своей сессией — по ним и восстанавливаем.
+        # Tokens are remembered together with their session — that is what we restore by.
         tokens.remember(res.masked_prompt, res.session_id)
 
-        # Захват маскированных версий вложений (для read_uploaded): путь берём
-        # маскированный (res.masked_attachments), имя — оригинальное (модель
-        # матчит по нему). Оригинальный storage_ref вниз не уходит.
+        # Capture the masked versions of the attachments (for read_uploaded): the
+        # path is the masked one (res.masked_attachments), the name is the original
+        # one (the model matches on it). The original storage_ref never goes down.
         if message_attachments and res.masked_attachments:
             originals = {a.attachment_id: a for a in message_attachments}
             for masked in res.masked_attachments:
@@ -250,13 +256,15 @@ def chat_with_tools_streaming(
     def restore_all(text: str) -> str:
         return tokens.restore(text)
 
-    # Гейт тулов на регистрации: список тулов для модели задаёт вызывающий
-    # (db.tools_for(permissions)). Без него — базовый db.TOOLS_SCHEMA (без OLAP).
+    # Registration-time tool gate: the caller decides the tool list handed to the
+    # model (db.tools_for(permissions)). Without it — the base db.TOOLS_SCHEMA
+    # (no OLAP).
     active_tools = tools_schema if tools_schema is not None else db.TOOLS_SCHEMA
 
-    # HARD GUARD против prompt injection: как только в этом turn был web_search,
-    # корп-data-тулы (db.WEB_GUARDED_TOOLS) блокируются до конца turn. Флаг живёт
-    # весь вызов и НЕ сбрасывается между проходами цикла.
+    # HARD GUARD against prompt injection: as soon as a web_search has happened in
+    # this turn, the corporate data tools (db.WEB_GUARDED_TOOLS) are blocked until
+    # the end of the turn. The flag lives for the whole call and is NOT reset
+    # between loop iterations.
     web_search_used = False
 
     convo: list[dict[str, Any]] = []
@@ -272,14 +280,15 @@ def chat_with_tools_streaming(
             )
             copied["content"] = tokenize_text(
                 copied["content"],
-                "сообщение",
+                "message",
                 message_attachments=message_attachments,
             )
         convo.append(copied)
 
-    # Схема табличных вложений -> в контекст (для тула analyze_uploaded): модель видит
-    # колонки/типы/примеры МАСКИРОВАННОГО файла, а не весь файл. Строится из уже
-    # маскированных вложений (masked_attachments), само маскирование не трогаем.
+    # The schema of tabular attachments goes into the context (for the
+    # analyze_uploaded tool): the model sees the columns/types/samples of the MASKED
+    # file, not the whole file. It is built from the already masked attachments
+    # (masked_attachments); masking itself is left alone.
     if masked_attachments and last_user_index >= 0:
         import analyze_uploaded
 
@@ -287,17 +296,22 @@ def chat_with_tools_streaming(
         for att in masked_attachments:
             try:
                 sch = analyze_uploaded.schema_of(att.storage_ref, att.file_type)
-            except Exception:  # noqa: BLE001 — схема не критична, не роняем чат
+            except Exception:  # noqa: BLE001 — the schema is optional, never break the chat
                 continue
             cols = "; ".join(f"{c['name']}: {c['dtype']}" for c in sch["columns"])
             sheets = sch.get("sheets")
             active = sch.get("active_sheet")
             if sheets:
-                # Многолистовой xlsx: перечисляем ВСЕ листы (иначе не-первые молча невидимы).
-                # Размеры «сырые» (включая строку заголовка). Колонки/примеры — по active-листу.
+                # Multi-sheet xlsx: list ALL sheets (otherwise the non-first ones are
+                # silently invisible). Sizes are "raw" (header row included).
+                # Columns/samples are those of the active sheet.
                 sheets_line = "; ".join(
                     f"{s['name']} ({s['rows']}×{s['cols']})" for s in sheets
                 )
+                # Prompt text below, sent to the model in Russian, as in production:
+                # "xlsx sheets (name (rows×cols, header included))", "df defaults to
+                # sheet <active>; for another sheet call analyze_uploaded with the
+                # sheet parameter", "columns of sheet <active>", "columns".
                 sheets_block = (
                     f"листы xlsx (имя (строк×колонок, с заголовком)): {sheets_line}\n"
                     f"df по умолчанию — лист «{active}»; для другого листа вызови "
@@ -307,6 +321,8 @@ def chat_with_tools_streaming(
             else:
                 sheets_block = ""
                 cols_label = "колонки"
+            # Prompt text: "Schema of the attached file <name> (masked; for the
+            # analyze_uploaded tool, variable df)", "data rows", "samples (first rows)".
             schema_blocks.append(
                 f"Схема прикреплённого файла «{att.file_name}» "
                 f"(маскированная; для инструмента analyze_uploaded, переменная df):\n"
@@ -319,9 +335,14 @@ def chat_with_tools_streaming(
             base = convo[last_user_index].get("content") or ""
             convo[last_user_index]["content"] = base + "\n\n" + "\n\n".join(schema_blocks)
 
-    # Документ схемы не имеет — модели нужна лишь подсказка, чем его читать. Имён файлов
-    # здесь НЕ повторяем: они уже перечислены в самом сообщении (и там замаскированы),
-    # а второй, немаскированный экземпляр имени сбивал бы матчинг вложения.
+    # A document has no schema — the model only needs a hint about what to read it
+    # with. File names are NOT repeated here: they are already listed in the message
+    # itself (and masked there), and a second, unmasked copy of the name would throw
+    # off attachment matching.
+    # Prompt text below: "[Some of the attachments are documents (PDF/DOCX/TXT).
+    # Their text is read by the read_uploaded tool by file name — it returns the
+    # beginning of the text. Computations (analyze_uploaded) are not available for
+    # documents.]"
     if doc_attachments and last_user_index >= 0:
         base = convo[last_user_index].get("content") or ""
         convo[last_user_index]["content"] = base + (
@@ -351,6 +372,7 @@ def chat_with_tools_streaming(
         tool_calls = msg.get("tool_calls") or []
 
         if not tool_calls:
+            # Fallback shown to the user: "(empty model response)".
             raw = msg.get("content") or "(пустой ответ модели)"
             display = restore_all(raw)
             for char in display:
@@ -384,16 +406,17 @@ def chat_with_tools_streaming(
                 permissions=author_permissions,
                 web_search_used=web_search_used,
                 user_id=usage_user_id,
-                # Таблицы — маскированные копии, документы — оригиналы (маскируются
-                # текстом на выходе тула). Ни один немаскированный байт в LLM не идёт.
+                # Tables are masked copies, documents are originals (masked as text
+                # on the way out of the tool). Not one unmasked byte reaches the LLM.
                 attachments=masked_attachments + doc_attachments,
                 image_model_id=image_model_id,
                 image_reference_ids=image_reference_ids,
                 video_model_id=video_model_id,
             )
-            # Ставим флаг ПОСЛЕ диспатча web_search: сам web_search проходит, а
-            # любой корп-тул дальше по этому turn (этот батч ниже или след. проход)
-            # уже блокируется hard-guard'ом в dispatch_tool.
+            # The flag is set AFTER dispatching web_search: web_search itself goes
+            # through, while any corporate tool later in this turn (further down this
+            # batch or on the next iteration) is already blocked by the hard guard
+            # inside dispatch_tool.
             if fn == "web_search":
                 web_search_used = True
             if tool_results is not None:
@@ -405,7 +428,7 @@ def chat_with_tools_streaming(
             on_event("tool_result", {"name": fn, "result": result})
 
             tool_text_raw = json.dumps(result, ensure_ascii=False, default=str)
-            tool_text_masked = tokenize_text(tool_text_raw, "результат инструмента")
+            tool_text_masked = tokenize_text(tool_text_raw, "tool result")
 
             convo.append({
                 "role": "tool",
@@ -413,6 +436,7 @@ def chat_with_tools_streaming(
                 "content": tool_text_masked,
             })
 
+    # Shown to the user: "The tool iteration limit has been exceeded."
     final_text = "Превышен лимит итераций инструментов."
     on_event("chunk", {"text": final_text})
     return final_text
