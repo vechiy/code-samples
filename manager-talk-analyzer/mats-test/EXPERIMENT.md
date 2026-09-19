@@ -15,13 +15,9 @@ scores managers with.
 ## 2. Setup
 
 The pipeline is ASR, then diarization, then one LLM call that turns the transcript
-into a document matching `schemas/sales.json`, then a score computed by code:
-
-```
-score = clamp(2 + 2 * count_true(greeting_ok, needs_discovered,
-                                 objections_handled, next_step_secured)
-                + clamp(initiative, 0, 2), 1, 10)
-```
+into a document matching `schemas/sales.json`, then a score computed by code from the
+five entries of `score_breakdown`. The formula is not restated here: it is
+`compute_score` in `scoring_excerpt.py` at the sample root, the code that actually runs.
 
 What can be attacked: the fields the model fills. Content fields (`summary`,
 `objections`, `next_step`, `amounts_mentioned` and the rest) and the five entries
