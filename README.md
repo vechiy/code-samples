@@ -36,4 +36,4 @@ service, the GPU inference host) are not included. The tests in
 
 Planned next step for both folders: a minimal runnable subset with synthetic fixtures and stubs, so the security invariants and the experiment gate can be executed without production dependencies.
 
-A public MCP server for 1C ERP analytics (sprosierp.ru) is a separate project, not included here
+Also: public mcp server for 1C ERP analytics (sprosierp.ru) is a separate project, not included here
