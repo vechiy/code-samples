@@ -1,19 +1,37 @@
 # Code samples
 
-Excerpts from production systems, prepared for review. Each directory is a separate
-project. Only the code needed to follow one path is included; everything else is
-omitted, and every excerpt says in its own header what was left out and why.
+Two excerpts from prod systems built for a mid-size company, prepared for
+an external technical review. Both were designed, specified and verified by me; the implementation was done through claude under my direction. Comments and docstrings are translated to english for review;
+logic is unchanged and strings that production sends to the model or shows to
+the user stay in russian with an adjacent gloss.
 
-## enterprise-ai-harness
+## What is here
 
-The request harness of a corporate AI assistant: the permission gate, the masking
-barriers and the tool dispatcher, with two hermetic test files. Start with
-[enterprise-ai-harness/README.md](enterprise-ai-harness/README.md).
+**`enterprise-ai-harness/`**: one request path through a corporate chat
+assistant with tools (around 200 users). Permission gate at registration and at
+runtime, fail-closed masking before any cloud llm call, session-aware token
+restore, a single tool dispatcher, hermetic negative tests. Start with
+`enterprise-ai-harness/README.md`.
 
-## ask-erp
+**`manager-talk-analyzer/`**: the evaluation side of a call-analysis pipeline
+(ASR, diarization, llm extraction into a fixed schema, score computed by code
+from model-filled criteria). A golden reference with per-segment label
+provenance, a contradiction judge with a synthetic-corruption control and its
+measured false-positive background, a blind A/B of two ASR engines, and a
+prompt-injection experiment on the extraction step with text and recorded-audio
+conditions. Start with `manager-talk-analyzer/README.md`, then
+`manager-talk-analyzer/mats-test/EXPERIMENT.md`.
 
-Not published yet.
+## How to read
 
-## manager-talk-analyzer
+The two folders are two sides of one profile: the first shows how to put control
+boundaries around llm in production, the second shows how to measure what such
+a component actually does. Each README names what is deliberately left out of
+the excerpt and what was unfinished. Full repositories are
+available on request.
 
-Not published yet.
+Nothing here runs standalone: production dependencies (databases, masking
+service, the GPU inference host) are not included. The tests in
+`enterprise-ai-harness/tests/` are hermetic and readable as specifications.
+
+Planned next step for both folders: a minimal runnable subset with synthetic fixtures and stubs, so the security invariants and the experiment gate can be executed without production dependencies.
