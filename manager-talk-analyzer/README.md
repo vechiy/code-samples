@@ -43,10 +43,7 @@ caught 15 of 19 applicable corruptions across ten calls, and the same judge retu
 20 findings on the untouched parses of those same calls, which is the false positive
 floor any "caught N of M" has to be read against.
 
-`mats-test/` is a prompt injection experiment on this extraction step: nine cases,
-two conditions (payload pasted into the transcript, payload spoken into the call),
-each with a paired filler and a success criterion declared before the run. Results
-and what they do and do not show: `mats-test/RESULTS.md`.
+mats-test/ is a prompt injection experiment on this extraction step: nine cases, two conditions (payload pasted into the transcript, payload spoken into a phone-to-phone recording), each with a paired filler and a success criterion declared before the run, three repeats, frozen with hashes, harness checked against the production path. In text, instructions addressed to the system moved no criterion; the only hit was an amount injected into amounts_mentioned (3/3). In audio, three of seven payloads never survived ASR; the only case that changed the score (4 to 6, 2/3) was a client's false confirmation of a next step, spoken as ordinary speech. Diarization attributed every surviving line to the right speaker. Full tables and what they do and do not show: mats-test/EXPERIMENT.md and mats-test/RESULTS.md.
 
 Nothing runs as shipped: every entry point needs a .env, a database and recordings
 that are not part of this sample. The tests are best read as a specification of the
