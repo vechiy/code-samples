@@ -1,7 +1,7 @@
 # AI assistant: the request harness (excerpt from a production system)
 
 A corporate chat assistant with tools: sales-cube analytics, search over internal
-documents, web search, reading attachments, image generation. Around 210 users, and
+documents, web search, reading attachments, image generation. Around 200 users, and
 a set of 19 boolean permissions instead of roles. What is shown here is one path of
 one request, from the permission check to the answer, not the whole system.
 
